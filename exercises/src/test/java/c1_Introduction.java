@@ -1,6 +1,8 @@
 import org.junit.jupiter.api.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -75,7 +77,7 @@ public class c1_Introduction extends IntroductionBase {
     public void empty_service() {
         Mono<String> serviceResult = emptyService();
 
-        Optional<String> optionalServiceResult = null; //todo: change this line only
+        Optional<String> optionalServiceResult = serviceResult.blockOptional(Duration.ofSeconds(10L)); //todo: change this line only
 
         assertTrue(optionalServiceResult.isEmpty());
         assertTrue(emptyServiceIsCalled.get());
@@ -92,7 +94,10 @@ public class c1_Introduction extends IntroductionBase {
     public void multi_result_service() {
         Flux<String> serviceResult = multiResultService();
 
-        String result = serviceResult.toString(); //todo: change this line only
+        String result = serviceResult
+                .timeout(Duration.ofSeconds(1L))
+                .blockFirst()
+                .toString(); //todo: change this line only
 
         assertEquals("valid result", result);
     }
@@ -106,7 +111,10 @@ public class c1_Introduction extends IntroductionBase {
     public void fortune_top_five() {
         Flux<String> serviceResult = fortuneTop5();
 
-        List<String> results = emptyList(); //todo: change this line only
+        List<String> results = serviceResult
+                .take(5L)
+                .collectList()
+                .block(Duration.ofSeconds(10L)); //todo: change this line only
 
         assertEquals(Arrays.asList("Walmart", "Amazon", "Apple", "CVS Health", "UnitedHealth Group"), results);
         assertTrue(fortuneTop5ServiceIsCalled.get());
@@ -131,8 +139,8 @@ public class c1_Introduction extends IntroductionBase {
 
         serviceResult
                 .doOnNext(companyList::add)
+                .subscribe();
         //todo: add an operator here, don't use any blocking operator!
-        ;
 
         Thread.sleep(1000); //bonus: can you explain why this line is needed?
 
@@ -154,9 +162,7 @@ public class c1_Introduction extends IntroductionBase {
         AtomicReference<Boolean> serviceCallCompleted = new AtomicReference<>(false);
         CopyOnWriteArrayList<String> companyList = new CopyOnWriteArrayList<>();
 
-        fortuneTop5()
-        //todo: change this line only
-        ;
+        fortuneTop5().subscribe(companyList::add,e -> {},() -> serviceCallCompleted.set(true)); //todo: change this line only
 
         Thread.sleep(1000);
 
