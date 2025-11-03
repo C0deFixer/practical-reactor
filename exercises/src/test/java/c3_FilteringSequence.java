@@ -92,7 +92,7 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     @Test
     public void dont_take_more_then_you_need() {
         Flux<Integer> numbers = number_service()
-                //todo: change this line only
+                .take(100)//todo: change this line only
                 ;
 
         StepVerifier.create(numbers)
@@ -106,7 +106,7 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     @Test
     public void not_a_binary_search() {
         Flux<Integer> numbers = number_service()
-                //todo: change this line only
+                .skip(200)//todo: change this line only
                 ;
 
         StepVerifier.create(numbers)
@@ -121,7 +121,7 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     @Test
     public void golden_middle() {
         Flux<Integer> numbers = number_service()
-                //todo: do your changes here
+                .skip(100).take(100)//todo: do your changes here
                 ;
 
         StepVerifier.create(numbers)
