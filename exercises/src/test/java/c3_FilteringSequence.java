@@ -3,6 +3,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.Objects;
+
 /**
  * Sequence may produce many elements, but we are not always interested in all of them. In this chapter we will learn
  * how to filter elements from a sequence.
@@ -27,7 +29,7 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     @Test
     public void girls_are_made_of_sugar_and_spice() {
         Flux<String> shortListed = popular_girl_names_service()
-                //todo: change this line only
+                .filter(x -> x.length() <= 4)//todo: change this line only
                 ;
 
         StepVerifier.create(shortListed)
@@ -42,7 +44,8 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     @Test
     public void needle_in_a_haystack() {
         Flux<String> strings = null;
-        mashed_data_service()
+        strings = mashed_data_service()
+                .ofType(String.class)
                 //todo: change this line only
                 ;
 
@@ -57,7 +60,7 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     @Test
     public void economical() {
         Flux<String> items = duplicated_records_service()
-                //todo: change this line only, use only one operator
+                .distinct(Objects::hashCode) //todo: change this line only, use only one operator
                 ;
 
         StepVerifier.create(items)
@@ -75,7 +78,7 @@ public class c3_FilteringSequence extends FilteringSequenceBase {
     public void watch_out_for_the_spiders() {
         //todo: change code as you need
         Mono<String> firstResult = Mono.empty();
-        fragile_service();
+        firstResult = fragile_service().elementAt(0);
 
         //don't change code below
         StepVerifier.create(firstResult)
