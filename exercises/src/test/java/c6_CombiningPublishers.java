@@ -3,6 +3,8 @@ import reactor.blockhound.BlockHound;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Hooks;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 import java.util.Objects;
@@ -42,7 +44,8 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
         //todo: feel free to change code as you need
         Mono<String> currentUserEmail = null;
         Mono<String> currentUserMono = getCurrentUser();
-        getUserEmail(null);
+        //currentUserEmail = currentUserMono.map(x -> getUserEmail(x)).block();
+        currentUserEmail = currentUserMono.flatMap(this::getUserEmail);
 
         //don't change below this line
         StepVerifier.create(currentUserEmail)
@@ -60,8 +63,11 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     @Test
     public void task_executor() {
         //todo: feel free to change code as you need
-        Flux<Void> tasks = null;
-        taskExecutor();
+        Mono<Void> tasks = null;
+        Flux<Mono<Void>> taskExecutor = taskExecutor();
+        tasks = taskExecutor
+                .flatMap(monoTask -> monoTask.subscribeOn(Schedulers.boundedElastic()))
+                .then();
 
         //don't change below this line
         StepVerifier.create(tasks)
@@ -80,7 +86,8 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void streaming_service() {
         //todo: feel free to change code as you need
         Flux<Message> messageFlux = null;
-        streamingService();
+        Mono<Flux<Message>> fluxMono = streamingService();
+        messageFlux = fluxMono.flatMapMany(mf -> mf);
 
         //don't change below this line
         StepVerifier.create(messageFlux)
