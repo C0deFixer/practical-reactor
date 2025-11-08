@@ -108,6 +108,8 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
         Flux<Integer> numbers = null;
         numberService1();
         numberService2();
+        //numbers = Flux.concat(numberService1(),numberService2());  //Concatenation is achieved by sequentially subscribing to the first source then waiting for it to complete before subscribing to the next, and so on until the last source completes. Any error interrupts the sequence immediately and is forwarded downstream.
+        numbers = numberService1().concatWith(numberService2());
 
         //don't change below this line
         StepVerifier.create(numbers)
@@ -132,7 +134,7 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void task_executor_again() {
         //todo: feel free to change code as you need
         Flux<Void> tasks = null;
-        taskExecutor();
+        tasks= taskExecutor().flatMapSequential(task -> task);
 
         //don't change below this line
         StepVerifier.create(tasks)
@@ -150,8 +152,7 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void need_for_speed() {
         //todo: feel free to change code as you need
         Flux<String> stonks = null;
-        getStocksGrpc();
-        getStocksRest();
+        stonks = Flux.firstWithSignal(getStocksGrpc(),getStocksRest());
 
         //don't change below this line
         StepVerifier.create(stonks)
@@ -168,8 +169,7 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void plan_b() {
         //todo: feel free to change code as you need
         Flux<String> stonks = null;
-        getStocksLocalCache();
-        getStocksRest();
+        stonks = getStocksLocalCache().switchIfEmpty(getStocksRest());
 
         //don't change below this line
         StepVerifier.create(stonks)
@@ -187,8 +187,17 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void mail_box_switcher() {
         //todo: feel free to change code as you need
         Flux<Message> myMail = null;
-        mailBoxPrimary();
-        mailBoxSecondary();
+        myMail = mailBoxPrimary().switchOnFirst((signal,flux) -> {
+            if (!signal.hasValue()) {
+                return mailBoxSecondary();
+            }
+            Message message = signal.get();
+            if (message.metaData.equals("spam")) {
+                return mailBoxSecondary();
+            }
+            return flux;
+        });
+
 
         //don't change below this line
         StepVerifier.create(myMail)
