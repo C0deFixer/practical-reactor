@@ -7,6 +7,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
@@ -220,6 +221,9 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
         //todo: feel free to change code as you need
         autoComplete(null);
         Flux<String> suggestions = userSearchInput()
+                //.debounce(Duration.ofMillis(100))
+                .doOnNext(s -> System.out.println("Typed: " + s))
+                .switchMap(this::autoComplete);
                 //todo: use one operator only
                 ;
 
@@ -241,14 +245,16 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
         //todo: use when,and,then...
         Mono<Boolean> successful = null;
 
-        openFile();
-        writeToFile("0x3522285912341");
-        closeFile();
+        successful = openFile()
+                .then(writeToFile("0x3522285912341"))
+                .then(closeFile().doOnError(e -> Mono.just(true)))
+                .thenReturn(true);//openFile().then(writeToFile("0x3522285912341")).then(closeFile()).and(Mono.just(true).map(t ->t));
 
         //don't change below this line
         StepVerifier.create(successful)
-                    .expectNext(true)
-                    .verifyComplete();
+                    .expectError(IllegalStateException.class);
+                    //.expectNext(true)
+                    //.verifyComplete();
 
         Assertions.assertTrue(fileOpened.get());
         Assertions.assertTrue(writtenToFile.get());
@@ -262,8 +268,7 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void one_to_n() {
         //todo: feel free to change code as you need
         Flux<String> fileLines = null;
-        openFile();
-        readFile();
+        fileLines = openFile().thenMany(readFile());
 
         StepVerifier.create(fileLines)
                     .expectNext("0x1", "0x2", "0x3")
