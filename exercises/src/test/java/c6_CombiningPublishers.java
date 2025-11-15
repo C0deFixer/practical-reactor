@@ -283,8 +283,8 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void acid_durability() {
         //todo: feel free to change code as you need
         Flux<String> committedTasksIds = null;
-        tasksToExecute();
-        commitTask(null);
+        committedTasksIds = tasksToExecute().concatMap(monoTask -> monoTask.map(taskId -> {commitTask(taskId); return taskId;}));
+        ;
 
         //don't change below this line
         StepVerifier.create(committedTasksIds)
@@ -303,8 +303,7 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     public void major_merger() {
         //todo: feel free to change code as you need
         Flux<String> microsoftBlizzardCorp =
-                microsoftTitles();
-        blizzardTitles();
+        Flux.merge(microsoftTitles(),blizzardTitles());
 
         //don't change below this line
         StepVerifier.create(microsoftBlizzardCorp)
@@ -328,9 +327,8 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
     @Test
     public void car_factory() {
         //todo: feel free to change code as you need
-        Flux<Car> producedCars = null;
-        carChassisProducer();
-        carEngineProducer();
+        Flux<Car> producedCars = Flux.zip(carChassisProducer(),carEngineProducer(),Car::new);
+
 
         //don't change below this line
         StepVerifier.create(producedCars)
@@ -351,9 +349,19 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
 
     //todo: implement this method based on instructions
     public Mono<String> chooseSource() {
-        sourceA(); //<- choose if sourceRef == "A"
+        /*sourceA(); //<- choose if sourceRef == "A"
         sourceB(); //<- choose if sourceRef == "B"
         return Mono.empty(); //otherwise, return empty
+        */
+        return Mono.defer(() -> {
+            switch (sourceRef.get()) {
+                case "A":
+                    return sourceA();
+                case "B":
+                    return sourceB();
+            }
+            return Mono.empty();
+        });
     }
 
     @Test
