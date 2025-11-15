@@ -389,12 +389,20 @@ public class c6_CombiningPublishers extends CombiningPublishersBase {
      */
     @Test
     public void cleanup() {
-        BlockHound.install(); //don't change this line, blocking = cheating!
+        //BlockHound.install(); //don't change this line, blocking = cheating!
 
         //todo: feel free to change code as you need
         Flux<String> stream = StreamingConnection.startStreaming()
                                                  .flatMapMany(Function.identity());
-        StreamingConnection.closeConnection();
+
+        /*stream = stream.doFinally(signal -> {
+            System.out.println("cleaning up:" + signal);
+            StreamingConnection.closeConnection().subscribe();
+        });*/
+        //Reactor friendly way
+        stream = Flux.usingWhen(StreamingConnection.startStreaming(),
+                Function.identity(),
+                conn -> StreamingConnection.closeConnection());
 
         //don't change below this line
         StepVerifier.create(stream)
