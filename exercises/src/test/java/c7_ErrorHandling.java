@@ -3,6 +3,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -34,9 +35,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void houston_we_have_a_problem() {
         AtomicReference<Throwable> errorRef = new AtomicReference<>();
         Flux<String> heartBeat = probeHeartBeatSignal()
-                //todo: do your changes here
-                //todo: & here
-                ;
+                .timeout(Duration.ofSeconds(3))//todo: do your changes here
+                //.doOnError(e -> errorRef.set(e))
+                .doOnError(errorRef::set);//todo: & here
 
         StepVerifier.create(heartBeat)
                     .expectNextCount(3)
@@ -55,9 +56,17 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void potato_potato() {
         Mono<String> currentUser = getCurrentUser()
                 //todo: change this line only
-                //use SecurityException
-                ;
+                .timeout(Duration.ofSeconds(1))
+                .onErrorMap(ex -> {
+                            if (ex instanceof TimeoutException) {
+                                return new SecurityException("Timeout",ex);
+                            }
 
+ /*       else if (ex instanceof UnauthorizedAccessException) {
+            return new SecurityException("User not authorized", ex);
+        }*/
+                            return new SecurityException("Failed to fetch current user", ex);
+                        });
         StepVerifier.create(currentUser)
                     .expectErrorMatches(e -> e instanceof SecurityException &&
                             e.getCause().getMessage().equals("No active session, user not found!"))
@@ -70,9 +79,11 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void under_the_rug() {
-        Flux<String> messages = messageNode();
+        Flux<String> messages = messageNode()
+                .onErrorResume(ex -> Flux.empty());
+        //.onErrorContinue((ex, value) -> {});
         //todo: change this line only
-        ;
+        //Flux.just("test")
 
         StepVerifier.create(messages)
                     .expectNext("0x1", "0x2")
@@ -86,9 +97,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void have_a_backup() {
         //todo: feel free to change code as you need
-        Flux<String> messages = null;
-        messageNode();
-        backupMessageNode();
+        Flux<String> messages = messageNode().onErrorResume(ex ->
+        backupMessageNode());
 
         //don't change below this line
         StepVerifier.create(messages)
@@ -103,8 +113,11 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void error_reporter() {
         //todo: feel free to change code as you need
-        Flux<String> messages = messageNode();
-        errorReportService(null);
+        Flux<String> messages = messageNode()
+             /*   .onErrorResume(ex -> {
+                    return errorReportService(ex);
+                });    */
+        .onErrorResume(ex -> errorReportService(ex).then(Mono.error(ex)));
 
         //don't change below this line
         StepVerifier.create(messages)
@@ -122,8 +135,14 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void unit_of_work() {
         Flux<Task> taskFlux = taskQueue()
-                //todo: do your changes here
-                ;
+                .concatMap(task ->
+                    task.execute().then(task.commit())
+                            .onErrorResume(task::rollback)
+                            .then(Mono.just(task)));
+                            //.onErrorResume(ex -> {task.rollback(ex); return Mono.just(task)});
+
+                ;//todo: do your changes here
+
 
         StepVerifier.create(taskFlux)
                     .expectNextMatches(task -> task.executedExceptionally.get() && !task.executedSuccessfully.get())
@@ -140,7 +159,7 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void billion_dollar_mistake() {
         Flux<String> content = getFilesContent()
                 .flatMap(Function.identity())
-                //todo: change this line only
+                .onErrorContinue((ex,file) -> {})//todo: change this line only
                 ;
 
         StepVerifier.create(content)
@@ -164,7 +183,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void resilience() {
         //todo: change code as you need
         Flux<String> content = getFilesContent()
-                .flatMap(Function.identity()); //start from here
+                .flatMap(Function.identity())
+                .onErrorResume(ex -> Mono.empty()); //start from here
 
         //don't change below this line
         StepVerifier.create(content)
@@ -178,7 +198,7 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void its_hot_in_here() {
-        Mono<Integer> temperature = temperatureSensor()
+        Mono<Integer> temperature = temperatureSensor().retry()
                 //todo: change this line only
                 ;
 
@@ -195,8 +215,10 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void back_off() {
         Mono<String> connection_result = establishConnection()
-                //todo: change this line only
-                ;
+                .delaySubscription(Duration.ofSeconds(3))
+                .doOnError(System.out::println)
+                .retry(3)//todo: change this line only
+                .doOnNext(System.out::println);
 
         StepVerifier.create(connection_result)
                     .expectNext("connection_established")
@@ -221,9 +243,10 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     }
 
     public static class SecurityException extends Exception {
-
-        public SecurityException(Throwable cause) {
+        private String description;
+        public SecurityException(String description, Throwable cause) {
             super(cause);
+            this.description = description;
         }
     }
 }
