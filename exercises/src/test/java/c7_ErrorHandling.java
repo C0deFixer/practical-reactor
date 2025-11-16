@@ -10,14 +10,14 @@ import java.util.function.Function;
 
 /**
  * It's time introduce some resiliency by recovering from unexpected events!
- *
+ * <p>
  * Read first:
- *
+ * <p>
  * https://projectreactor.io/docs/core/release/reference/#which.errors
  * https://projectreactor.io/docs/core/release/reference/#error.handling
- *
+ * <p>
  * Useful documentation:
- *
+ * <p>
  * https://projectreactor.io/docs/core/release/reference/#which-operator
  * https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Mono.html
  * https://projectreactor.io/docs/core/release/api/reactor/core/publisher/Flux.html
@@ -40,9 +40,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
                 .doOnError(errorRef::set);//todo: & here
 
         StepVerifier.create(heartBeat)
-                    .expectNextCount(3)
-                    .expectError(TimeoutException.class)
-                    .verify();
+                .expectNextCount(3)
+                .expectError(TimeoutException.class)
+                .verify();
 
         Assertions.assertTrue(errorRef.get() instanceof TimeoutException);
     }
@@ -58,19 +58,19 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
                 //todo: change this line only
                 .timeout(Duration.ofSeconds(1))
                 .onErrorMap(ex -> {
-                            if (ex instanceof TimeoutException) {
-                                return new SecurityException("Timeout",ex);
-                            }
+                    if (ex instanceof TimeoutException) {
+                        return new SecurityException("Timeout", ex);
+                    }
 
  /*       else if (ex instanceof UnauthorizedAccessException) {
             return new SecurityException("User not authorized", ex);
         }*/
-                            return new SecurityException("Failed to fetch current user", ex);
-                        });
+                    return new SecurityException("Failed to fetch current user", ex);
+                });
         StepVerifier.create(currentUser)
-                    .expectErrorMatches(e -> e instanceof SecurityException &&
-                            e.getCause().getMessage().equals("No active session, user not found!"))
-                    .verify();
+                .expectErrorMatches(e -> e instanceof SecurityException &&
+                        e.getCause().getMessage().equals("No active session, user not found!"))
+                .verify();
     }
 
     /**
@@ -86,8 +86,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
         //Flux.just("test")
 
         StepVerifier.create(messages)
-                    .expectNext("0x1", "0x2")
-                    .verifyComplete();
+                .expectNext("0x1", "0x2")
+                .verifyComplete();
     }
 
     /**
@@ -98,12 +98,12 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void have_a_backup() {
         //todo: feel free to change code as you need
         Flux<String> messages = messageNode().onErrorResume(ex ->
-        backupMessageNode());
+                backupMessageNode());
 
         //don't change below this line
         StepVerifier.create(messages)
-                    .expectNext("0x1", "0x2", "0x3", "0x4")
-                    .verifyComplete();
+                .expectNext("0x1", "0x2", "0x3", "0x4")
+                .verifyComplete();
     }
 
     /**
@@ -114,16 +114,16 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void error_reporter() {
         //todo: feel free to change code as you need
         Flux<String> messages = messageNode()
-             /*   .onErrorResume(ex -> {
-                    return errorReportService(ex);
-                });    */
-        .onErrorResume(ex -> errorReportService(ex).then(Mono.error(ex)));
+                /*   .onErrorResume(ex -> {
+                       return errorReportService(ex);
+                   });    */
+                .onErrorResume(ex -> errorReportService(ex).then(Mono.error(ex)));
 
         //don't change below this line
         StepVerifier.create(messages)
-                    .expectNext("0x1", "0x2")
-                    .expectError(RuntimeException.class)
-                    .verify();
+                .expectNext("0x1", "0x2")
+                .expectError(RuntimeException.class)
+                .verify();
         Assertions.assertTrue(errorReported.get());
     }
 
@@ -136,18 +136,18 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void unit_of_work() {
         Flux<Task> taskFlux = taskQueue()
                 .concatMap(task ->
-                    task.execute().then(task.commit())
-                            .onErrorResume(task::rollback)
-                            .then(Mono.just(task)));
-                            //.onErrorResume(ex -> {task.rollback(ex); return Mono.just(task)});
+                        task.execute().then(task.commit())
+                                .onErrorResume(task::rollback)
+                                .then(Mono.just(task)));
+        //.onErrorResume(ex -> {task.rollback(ex); return Mono.just(task)});
 
-                ;//todo: do your changes here
+        ;//todo: do your changes here
 
 
         StepVerifier.create(taskFlux)
-                    .expectNextMatches(task -> task.executedExceptionally.get() && !task.executedSuccessfully.get())
-                    .expectNextMatches(task -> task.executedSuccessfully.get() && task.executedSuccessfully.get())
-                    .verifyComplete();
+                .expectNextMatches(task -> task.executedExceptionally.get() && !task.executedSuccessfully.get())
+                .expectNextMatches(task -> task.executedSuccessfully.get() && task.executedSuccessfully.get())
+                .verifyComplete();
     }
 
     /**
@@ -159,23 +159,24 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void billion_dollar_mistake() {
         Flux<String> content = getFilesContent()
                 .flatMap(Function.identity())
-                .onErrorContinue((ex,file) -> {})//todo: change this line only
+                .onErrorContinue((ex, file) -> {
+                })//todo: change this line only
                 ;
 
         StepVerifier.create(content)
-                    .expectNext("file1.txt content", "file3.txt content")
-                    .verifyComplete();
+                .expectNext("file1.txt content", "file3.txt content")
+                .verifyComplete();
     }
 
     /**
      * Quote from one of creators of Reactor: onErrorContinue is my billion-dollar mistake. `onErrorContinue` is
      * considered as a bad practice, its unsafe and should be avoided.
-     *
+     * <p>
      * {@see <a href="https://nurkiewicz.com/2021/08/onerrorcontinue-reactor.html">onErrorContinue</a>} {@see <a
      * href="https://devdojo.com/ketonemaniac/reactor-onerrorcontinue-vs-onerrorresume">onErrorContinue vs
      * onErrorResume</a>} {@see <a href="https://bsideup.github.io/posts/daily_reactive/where_is_my_exception/">Where is
      * my exception?</a>}
-     *
+     * <p>
      * Your task is to implement `onErrorContinue()` behaviour using `onErrorResume()` operator,
      * by using knowledge gained from previous lessons.
      */
@@ -188,8 +189,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
 
         //don't change below this line
         StepVerifier.create(content)
-                    .expectNext("file1.txt content", "file3.txt content")
-                    .verifyComplete();
+                .expectNext("file1.txt content", "file3.txt content")
+                .verifyComplete();
     }
 
     /**
@@ -203,8 +204,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
                 ;
 
         StepVerifier.create(temperature)
-                    .expectNext(34)
-                    .verifyComplete();
+                .expectNext(34)
+                .verifyComplete();
     }
 
     /**
@@ -221,8 +222,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
                 .doOnNext(System.out::println);
 
         StepVerifier.create(connection_result)
-                    .expectNext("connection_established")
-                    .verifyComplete();
+                .expectNext("connection_established")
+                .verifyComplete();
     }
 
     /**
@@ -233,17 +234,20 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void good_old_polling() {
         //todo: change code as you need
-        Flux<String> alerts = null;
-        nodeAlerts();
+        Flux<String> alerts = nodeAlerts()
+                .repeatWhenEmpty(repeat -> repeat.delayElements(Duration.ofSeconds(1)))
+                .repeat()
+                .take(2);
 
         //don't change below this line
         StepVerifier.create(alerts.take(2))
-                    .expectNext("node1:low_disk_space", "node1:down")
-                    .verifyComplete();
+                .expectNext("node1:low_disk_space", "node1:down")
+                .verifyComplete();
     }
 
     public static class SecurityException extends Exception {
         private String description;
+
         public SecurityException(String description, Throwable cause) {
             super(cause);
             this.description = description;
