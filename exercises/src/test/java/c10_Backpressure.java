@@ -47,7 +47,7 @@ public class c10_Backpressure extends BackpressureBase {
     public void request_and_demand() {
         CopyOnWriteArrayList<Long> requests = new CopyOnWriteArrayList<>();
         Flux<String> messageStream = messageStream1()
-                //todo: change this line only
+                .doOnRequest(requests::add)//todo: change this line only
                 ;
 
         StepVerifier.create(messageStream, StepVerifierOptions.create().initialRequest(0))
@@ -71,8 +71,8 @@ public class c10_Backpressure extends BackpressureBase {
     public void limited_demand() {
         CopyOnWriteArrayList<Long> requests = new CopyOnWriteArrayList<>();
         Flux<String> messageStream = messageStream2()
-                //todo: do your changes here
-                ;
+                .doOnRequest(requests::add)//todo: do your changes here
+                        .limitRate(1);
 
         StepVerifier.create(messageStream, StepVerifierOptions.create().initialRequest(0))
                     .expectSubscription()
@@ -94,7 +94,13 @@ public class c10_Backpressure extends BackpressureBase {
     @Test
     public void uuid_generator() {
         Flux<UUID> uuidGenerator = Flux.create(sink -> {
-            //todo: do your changes here
+            sink.onRequest(n ->
+                    {
+                        for (int i = 0; i < n; i++) {
+                            sink.next(UUID.randomUUID());
+                        }
+                    });
+                    //todo: do your changes here
         });
 
         StepVerifier.create(uuidGenerator
@@ -116,8 +122,8 @@ public class c10_Backpressure extends BackpressureBase {
     @Test
     public void pressure_is_too_much() {
         Flux<String> messageStream = messageStream3()
-                //todo: change this line only
-                ;
+                .onBackpressureError();//todo: change this line only
+
 
         StepVerifier.create(messageStream, StepVerifierOptions.create()
                                                               .initialRequest(0))
@@ -137,7 +143,7 @@ public class c10_Backpressure extends BackpressureBase {
     @Test
     public void u_wont_brake_me() {
         Flux<String> messageStream = messageStream4()
-                //todo: change this line only
+                .onBackpressureBuffer()//todo: change this line only
                 ;
 
         StepVerifier.create(messageStream, StepVerifierOptions.create()
@@ -174,12 +180,15 @@ public class c10_Backpressure extends BackpressureBase {
                     @Override
                     protected void hookOnSubscribe(Subscription subscription) {
                         sub.set(subscription);
+                        sub.get().request(10L);
                     }
 
                     @Override
                     protected void hookOnNext(String s) {
                         System.out.println(s);
-                        count.incrementAndGet();
+                        if (count.incrementAndGet() == 10) {
+                            sub.get().cancel();
+                        }
                     }
                     //-----------------------------------------------------
                 });
