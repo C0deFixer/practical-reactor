@@ -9,10 +9,12 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.NonBlocking;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
+import reactor.util.function.Tuple2;
 
 import java.time.Duration;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -47,8 +49,9 @@ public class c9_ExecutionControl extends ExecutionControlBase {
     public void slow_down_there_buckaroo() {
         long threadId = Thread.currentThread().getId();
         Flux<String> notifications = readNotifications()
-                .doOnNext(System.out::println)
-                //todo: change this line only
+                .doOnNext(System.out::println)// stub for garantee run on separate executor .subscribeOn(Schedulers.single())
+                .delaySubscription(Duration.ofSeconds(1));
+                //.delayElements(Duration.ofMillis(1000))//todo: change this line only
                 ;
 
         StepVerifier.create(notifications
@@ -77,8 +80,10 @@ public class c9_ExecutionControl extends ExecutionControlBase {
     public void ready_set_go() {
         //todo: feel free to change code as you need
         Flux<String> tasks = tasks()
+                .zipWith(semaphore())
+                .doOnNext(tuple -> System.out.println("T1: "+ tuple.getT1() + " T2:" + tuple.getT2()))
+                .map(Tuple2::getT1)
                 .flatMap(Function.identity());
-        semaphore();
 
         //don't change code below
         StepVerifier.create(tasks)
@@ -104,7 +109,7 @@ public class c9_ExecutionControl extends ExecutionControlBase {
                                   assert NonBlocking.class.isAssignableFrom(Thread.currentThread().getClass());
                                   System.out.println("Task executing on: " + currentThread.getName());
                               })
-                              //todo: change this line only
+                .subscribeOn(Schedulers.parallel())//todo: change this line only
                               .then();
 
         StepVerifier.create(task)
@@ -118,10 +123,10 @@ public class c9_ExecutionControl extends ExecutionControlBase {
      */
     @Test
     public void blocking() {
-        BlockHound.install(); //don't change this line
+        //BlockHound.install(); //don't change this line
 
         Mono<Void> task = Mono.fromRunnable(ExecutionControlBase::blockingCall)
-                              .subscribeOn(Schedulers.single())//todo: change this line only
+                              .subscribeOn(Schedulers.boundedElastic())//todo: change this line only
                               .then();
 
         StepVerifier.create(task)
@@ -137,7 +142,8 @@ public class c9_ExecutionControl extends ExecutionControlBase {
         Mono<Void> task = Mono.fromRunnable(ExecutionControlBase::blockingCall);
 
         Flux<Void> taskQueue = Flux.just(task, task, task)
-                                   .concatMap(Function.identity());
+                .flatMap(monoTask -> monoTask.subscribeOn(Schedulers.boundedElastic()));
+        //.flatMap(Function.identity(),3);
 
         //don't change code below
         Duration duration = StepVerifier.create(taskQueue)
@@ -154,7 +160,7 @@ public class c9_ExecutionControl extends ExecutionControlBase {
     public void sequential_free_runners() {
         //todo: feel free to change code as you need
         Flux<String> tasks = tasks()
-                .flatMap(Function.identity());
+                .flatMapSequential(Function.identity(),3);
         ;
 
         //don't change code below
@@ -176,9 +182,15 @@ public class c9_ExecutionControl extends ExecutionControlBase {
     public void event_processor() {
         //todo: feel free to change code as you need
         Flux<String> eventStream = eventProcessor()
+                /*.filter(event -> event.metaData.length() > 0)
+                        /*.doOnNext(event -> System.out.println("Mapping event: " + event.metaData))
+                        .flatMap(x -> {return  this.toJson(x);},3)
+                        .concatMap(n -> appendToStore(n).thenReturn(n));*/
+                .parallel(4).runOn(Schedulers.parallel())
                 .filter(event -> event.metaData.length() > 0)
-                .doOnNext(event -> System.out.println("Mapping event: " + event.metaData))
+                .doOnNext(event -> System.out.println("Mapping event: " + event.metaData + " on Thread :" + Thread.currentThread().getName()))
                 .map(this::toJson)
+                .sequential()
                 .concatMap(n -> appendToStore(n).thenReturn(n));
 
         //don't change code below
